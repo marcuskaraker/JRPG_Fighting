@@ -1,0 +1,15 @@
+{
+    "name": "FutureGames.JRPG_Rocket",
+    "references": [
+        "GUID:74d1ed13e61730f4899c552ce1f06935"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
