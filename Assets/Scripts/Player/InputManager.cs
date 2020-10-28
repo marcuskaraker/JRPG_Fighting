@@ -36,9 +36,13 @@ public class InputManager : MonoBehaviour
             selector.SetActive(true);
             MoveSelector(hit.transform.position, lerpSelectorPos);
 
-            if (Input.GetMouseButtonDown(0))
+            if (Input.GetMouseButtonDown(0)) // Left click
             {
                 SelectTile(hit.transform);
+            }
+            else if (Input.GetMouseButtonDown(1)) // Right click
+            {
+                SelectTile(hit.transform, true);
             }
         }
         else
@@ -55,9 +59,14 @@ public class InputManager : MonoBehaviour
         {
             characterSelector.SetActive(false);
         }
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            GameManager.Instance.ExecuteAllCommands();
+        }
     }
 
-    private bool SelectTile(Transform transform)
+    private bool SelectTile(Transform transform, bool selectForTarget = false)
     {
         TileVisuals selectedTileVisuals = transform.GetComponent<TileVisuals>();
         if (selectedTileVisuals != null)
@@ -65,12 +74,29 @@ public class InputManager : MonoBehaviour
             lastSelectedTile = GameManager.Instance.GetTileFromVisuals(selectedTileVisuals);
             if (lastSelectedTile != null)
             {
-                if (lastSelectedTile.characterOnTile != null)
+                if (selectForTarget && selectedCharater != null)
                 {
-                    selectedCharater = lastSelectedTile.characterOnTile;
+                    if (lastSelectedTile.characterOnTile != null)
+                    {
+                        
+                    }
+                    else
+                    {
+                        selectedCharater.AddTargetTile(lastSelectedTile);
+                        selectedCharater.AddCommand(new CommandMove(lastSelectedTile));
+                        GameManager.Instance.onSelectTileTarget(selectedCharater);
+                    }
                 }
+                else
+                {
+                    if (lastSelectedTile.characterOnTile != null)
+                    {
+                        selectedCharater = lastSelectedTile.characterOnTile;
+                        GameManager.Instance.onSelectCharacter(selectedCharater);
+                    }
 
-                return true;
+                    return true;
+                }
             }
         }
 

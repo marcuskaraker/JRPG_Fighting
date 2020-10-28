@@ -3,6 +3,7 @@ using System.Collections;
 using UnityEngine;
 using MK;
 using UnityEngine.Events;
+using System;
 
 public class GameManager : MonoBehaviorSingleton<GameManager>
 { 
@@ -23,6 +24,7 @@ public class GameManager : MonoBehaviorSingleton<GameManager>
     [Header("Game Settings")]
     [SerializeField] CharacterVisuals characterPrefab;
 
+    [SerializeField] float ticWaitTime = 0.2f;
     [SerializeField] int characterCount = 3;
     [SerializeField] float characterLerpSpeed = 10f;
 
@@ -30,12 +32,21 @@ public class GameManager : MonoBehaviorSingleton<GameManager>
 
     Dictionary<Tile, TileVisuals> tileToVisuals;
     Dictionary<TileVisuals, Tile> visualsToTile;
+    Dictionary<Character, Tile> characterToTile;
     Dictionary<Character, CharacterVisuals> characterToVisuals;
     Dictionary<CharacterVisuals, Character> visualsToCharacter;
 
-    public UnityEvent onDestroyWorld; 
+    List<Character> allCharacters;
+
+    public UnityEvent onDestroyWorld;
+
+    public Action<Character> onSelectCharacter = delegate { };
+    public Action<Character> onExecuteCommand = delegate { };
+    public Action<Character> onSelectTileTarget = delegate { };
+    public Action<Character[]> onStartGame = delegate { };
 
     public bool IsGeneratingWorld { get; private set; }
+    public bool IsExecutingCommands { get; private set; }
 
     private void Awake()
     {
@@ -71,15 +82,18 @@ public class GameManager : MonoBehaviorSingleton<GameManager>
 
         tileToVisuals = new Dictionary<Tile, TileVisuals>();
         visualsToTile = new Dictionary<TileVisuals, Tile>();
+        characterToTile = new Dictionary<Character, Tile>();
         characterToVisuals = new Dictionary<Character, CharacterVisuals>();
         visualsToCharacter = new Dictionary<CharacterVisuals, Character>();
+
+        allCharacters = new List<Character>();
 
         tiles = new Tile[worldSize.x, worldSize.y];
 
         Vector2 perlinOrigin = new Vector2
         (
-            Random.Range(-1000, 1000),
-            Random.Range(-1000, 1000)
+            UnityEngine.Random.Range(-1000, 1000),
+            UnityEngine.Random.Range(-1000, 1000)
         );
 
         for (int x = 0; x < worldSize.x; x++)
@@ -103,9 +117,11 @@ public class GameManager : MonoBehaviorSingleton<GameManager>
         for (int i = 0; i < characterCount; i++)
         {
             Tile randomTile = GetRandomTile();
-            Character character = new Character("Character " + i, randomTile.position);
-            randomTile.characterOnTile = character;
+            Character character = new Character("Character " + i, randomTile.position, new Destructible(10f, 10f));
+            InitCharacter(character, randomTile);
         }
+
+        onStartGame.Invoke(allCharacters.ToArray());
 
         IsGeneratingWorld = false;
     }
@@ -153,8 +169,8 @@ public class GameManager : MonoBehaviorSingleton<GameManager>
 
         Vector2Int randomCoordinate = new Vector2Int
         (
-            Random.Range(0, worldSize.x),
-            Random.Range(0, worldSize.y)
+            UnityEngine.Random.Range(0, worldSize.x),
+            UnityEngine.Random.Range(0, worldSize.y)
         );
 
         return tiles[randomCoordinate.x, randomCoordinate.y];
@@ -184,9 +200,45 @@ public class GameManager : MonoBehaviorSingleton<GameManager>
         spawnedCharacter.gameObject.name = character.characterName;
 
         characterToVisuals.Add(character, spawnedCharacter);
-        visualsToCharacter.Add(spawnedCharacter, character);
+        visualsToCharacter.Add(spawnedCharacter, character);      
 
         return spawnedCharacter;
+    }
+
+    private void InitCharacter(Character character, Tile tile)
+    {
+        characterToTile.Add(character, tile);
+        tile.characterOnTile = character;
+        allCharacters.Add(character);
+    }
+
+    public void MoveCharacter(Character character, Tile targetTile)
+    {
+        RemoveCharacterFromTile(character);
+        targetTile.characterOnTile = character;
+        characterToTile.Add(character, targetTile);
+        character.position = targetTile.position;
+    }
+
+    public void ExecuteAllCommands()
+    {
+        if (IsExecutingCommands) return;
+
+        StartCoroutine(DoExecuteAllCommands());
+    }
+
+    private IEnumerator DoExecuteAllCommands()
+    {
+        IsExecutingCommands = true;
+        foreach (Character character in allCharacters)
+        {
+            while (character.ExecuteCommand())
+            {
+                onExecuteCommand.Invoke(character);
+                yield return new WaitForSeconds(ticWaitTime);
+            }          
+        }
+        IsExecutingCommands = false;
     }
 
     public void UpdateTileVisuals()
@@ -280,6 +332,30 @@ public class GameManager : MonoBehaviorSingleton<GameManager>
         }
 
         return null;
+    }
+
+    public Tile GetTileFromCharacter(Character character)
+    {
+        Tile tile = null;
+        if (characterToTile.TryGetValue(character, out tile))
+        {
+            return tile;
+        }
+
+        return null;
+    }
+
+    public bool RemoveCharacterFromTile(Character character)
+    {
+        Tile tile = null;
+        if (characterToTile.TryGetValue(character, out tile))
+        {
+            characterToTile.Remove(character);
+            tile.characterOnTile = null;
+            return true;
+        }
+
+        return false;
     }
     #endregion
 }
