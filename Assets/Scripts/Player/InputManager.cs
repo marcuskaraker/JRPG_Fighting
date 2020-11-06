@@ -99,9 +99,12 @@ public class InputManager : MonoBehaviour
                 {
                     if (lastSelectedTile.characterOnTile != null)
                     {
-                        // Attack character on tile (if enemy)
-                        selectedCharacterForAttack = lastSelectedTile.characterOnTile;
-                        selectedCharater.AddCommand(new CommandAttack(selectedCharacterForAttack, 10f));
+                        if (selectedCharater.IsEnemy(lastSelectedTile.characterOnTile))
+                        {
+                            // Attack character on tile (if enemy)
+                            selectedCharacterForAttack = lastSelectedTile.characterOnTile;
+                            selectedCharater.AddCommand(new CommandAttack(selectedCharacterForAttack, 10f));
+                        }
                     }
                     else
                     {
