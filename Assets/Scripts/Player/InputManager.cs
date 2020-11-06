@@ -5,6 +5,7 @@ public class InputManager : MonoBehaviour
     [SerializeField] LayerMask terrainMask;
     [SerializeField] GameObject selectorPrefab;
     [SerializeField] GameObject characterSelectorPrefab;
+    [SerializeField] GameObject characterAttackSelectorPrefab;
 
     [Space]
     [SerializeField] bool lerpSelectorPos;
@@ -12,19 +13,23 @@ public class InputManager : MonoBehaviour
 
     GameObject selector;
     GameObject characterSelector;
+    GameObject characterAttackSelector;
 
     Tile lastSelectedTile;
     Character selectedCharater;
+    Character selectedCharacterForAttack;
 
     private void Awake()
     {
         selector = Instantiate(selectorPrefab, transform);
         characterSelector = Instantiate(characterSelectorPrefab, transform);
+        characterAttackSelector = Instantiate(characterAttackSelectorPrefab, transform);
 
         selector.SetActive(false);
         characterSelector.SetActive(false);
 
-        GameManager.Instance.onDestroyWorld.AddListener(delegate { ResetInputManager(); });
+        GameManager.Instance.World.onDestroyWorld.AddListener(delegate { ResetInputManager(); });
+        GameManager.Instance.onEndTurn += SelectCharacter;
     }
 
     private void Update()
@@ -34,11 +39,11 @@ public class InputManager : MonoBehaviour
         if (Physics.Raycast(ray, out hit, 100f, terrainMask))
         {
             selector.SetActive(true);
-            MoveSelector(hit.transform.position, lerpSelectorPos);
+            MoveSelector(selector, hit.transform.position, lerpSelectorPos);
 
             if (Input.GetMouseButtonDown(0)) // Left click
             {
-                SelectTile(hit.transform);
+                //SelectTile(hit.transform);
             }
             else if (Input.GetMouseButtonDown(1)) // Right click
             {
@@ -52,7 +57,7 @@ public class InputManager : MonoBehaviour
 
         if (selectedCharater != null)
         {
-            MoveCharacterSelector(selectedCharater.position, true);
+            MoveSelector(characterSelector, selectedCharater.position, true);
             characterSelector.SetActive(true);
         }
         else
@@ -60,9 +65,25 @@ public class InputManager : MonoBehaviour
             characterSelector.SetActive(false);
         }
 
+        if (selectedCharacterForAttack != null)
+        {
+            MoveSelector(characterAttackSelector, selectedCharacterForAttack.position, true);
+            characterAttackSelector.SetActive(true);
+        }
+        else
+        {
+            characterAttackSelector.SetActive(false);
+        }
+
         if (Input.GetKeyDown(KeyCode.Space))
         {
-            GameManager.Instance.ExecuteAllCommands();
+            GameManager.Instance.EndTurn();
+        }
+
+        // Debug Input
+        if (Input.GetKeyDown(KeyCode.G))
+        {
+            GameManager.Instance.World.GenerateWorld();
         }
     }
 
@@ -71,14 +92,16 @@ public class InputManager : MonoBehaviour
         TileVisuals selectedTileVisuals = transform.GetComponent<TileVisuals>();
         if (selectedTileVisuals != null)
         {
-            lastSelectedTile = GameManager.Instance.GetTileFromVisuals(selectedTileVisuals);
+            lastSelectedTile = GameManager.Instance.World.GetTileFromVisuals(selectedTileVisuals);
             if (lastSelectedTile != null)
             {
                 if (selectForTarget && selectedCharater != null)
                 {
                     if (lastSelectedTile.characterOnTile != null)
                     {
-                        
+                        // Attack character on tile (if enemy)
+                        selectedCharacterForAttack = lastSelectedTile.characterOnTile;
+                        selectedCharater.AddCommand(new CommandAttack(selectedCharacterForAttack, 10f));
                     }
                     else
                     {
@@ -91,8 +114,7 @@ public class InputManager : MonoBehaviour
                 {
                     if (lastSelectedTile.characterOnTile != null)
                     {
-                        selectedCharater = lastSelectedTile.characterOnTile;
-                        GameManager.Instance.onSelectCharacter(selectedCharater);
+                        SelectCharacter(lastSelectedTile.characterOnTile);
                     }
 
                     return true;
@@ -103,7 +125,14 @@ public class InputManager : MonoBehaviour
         return false;
     }
 
-    public void MoveSelector(Vector3 targetPos, bool lerp)
+    public void SelectCharacter(Character character)
+    {
+        selectedCharater = character;
+        selectedCharacterForAttack = null;
+        GameManager.Instance.onSelectCharacter(character);
+    }
+
+    public void MoveSelector(GameObject selector, Vector3 targetPos, bool lerp)
     {
         if (lerp)
         {
@@ -112,18 +141,6 @@ public class InputManager : MonoBehaviour
         else
         {
             selector.transform.position = targetPos;
-        }
-    }
-
-    public void MoveCharacterSelector(Vector3 targetPos, bool lerp)
-    {
-        if (lerp)
-        {
-            characterSelector.transform.position = Vector3.Lerp(characterSelector.transform.position, targetPos, Time.deltaTime * selectorLerpSpeed);
-        }
-        else
-        {
-            characterSelector.transform.position = targetPos;
         }
     }
 

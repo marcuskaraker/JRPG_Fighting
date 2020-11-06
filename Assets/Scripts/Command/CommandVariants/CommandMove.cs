@@ -16,7 +16,7 @@ public class CommandMove : Command
             Character character = (Character)commandInvoker;
 
             character.RemoveTargetTile(target);
-            GameManager.Instance.MoveCharacter(character, target);
+            GameManager.Instance.World.MoveCharacter(character, target);
         }       
     }
 }
